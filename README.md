@@ -1,7 +1,7 @@
 # digital_morphology
 
 
-[!(https://github.com/rizbicki/digital_morphology/releases/tag/v1.1)](https://zenodo.org/badge/235828767.svg)
+[!(https://zenodo.org/badge/235828767.svg)](https://github.com/rizbicki/digital_morphology/releases/tag/v1.1)
 
 This is the content of each of the folders:
 
