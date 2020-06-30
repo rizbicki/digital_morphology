@@ -1,6 +1,7 @@
 # digital_morphology
 
-https://zenodo.org/badge/235828767.svg
+
+[![Foo](https://zenodo.org/badge/235828767.svg)](https://zenodo.org/badge/235828767.svg)
 
 This is the content of each of the folders:
 
