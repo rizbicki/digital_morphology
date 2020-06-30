@@ -9,6 +9,8 @@ library(gridExtra)
 library(grid)
 library(ggplot2)
 library(lattice)
+library(plotly)
+library(irr)
 
 # ggplot configuration
 theme = theme_set(theme_bw(base_size = 22))
@@ -54,13 +56,170 @@ data_all=cbind(split_name,data_all)
 colnames(data_all)[1:3]=c("measurement_name","replicate","S_or_I")
 
 id=paste(data_all$Barcode,data_all$Species,
-                    data_all$measurement_name,
-                    data_all$S_or_I,paste = "_")
+         data_all$measurement_name,
+         data_all$S_or_I,paste = "_")
 data_all$id_unique_sample= id
 data_all$measurement_value=as.numeric(data_all$measurement_value)
 data_all=data_all[!is.na(data_all$replicate),]
 
+###################
+# Precision analyses
+###################
+data_all_2_replicates_I <- data_all %>% 
+  filter(replicate==1|replicate==2,S_or_I=="I")
+data_all_2_replicates_S <- data_all %>% 
+  filter(replicate==1|replicate==2,S_or_I=="S")
+data_all_2_replicates_I$identifier=paste(data_all_2_replicates_I$Barcode,
+                                         data_all_2_replicates_I$Species,
+                                         data_all_2_replicates_I$measurement_name,
+                                         paste = "_")
+data_all_2_replicates_S$identifier=paste(data_all_2_replicates_S$Barcode,
+                                         data_all_2_replicates_S$Species,
+                                         data_all_2_replicates_S$measurement_name,
+                                         paste = "_")
+diff_NA <- function(x)
+{
+  return_value <- diff(x)
+  return(ifelse(length(return_value)==0,NA,return_value))
+}
 
+data_all_2_replicates_I_differences <- data_all_2_replicates_I %>% 
+  group_by(identifier) %>% 
+  summarise(diff_I=diff_NA(measurement_value),mean=mean(measurement_value,na.rm=T)) 
+data_all_2_replicates_S_differences <- data_all_2_replicates_S %>% 
+  group_by(identifier) %>% 
+  summarise(diff_S=diff_NA(measurement_value),mean=mean(measurement_value,na.rm=T)) 
+
+data_all_2_replicates <- merge(data_all_2_replicates_I_differences,
+                               data_all_2_replicates_S_differences,
+                               by="identifier")
+
+data_all_2_summary <- data.frame(identifier=data_all_2_replicates$identifier,
+                                 error_I=data_all_2_replicates$diff_I/data_all_2_replicates$mean.x,
+                                 error_S=data_all_2_replicates$diff_S/data_all_2_replicates$mean.y,
+                                 measurement_S=data_all_2_replicates$mean.y,
+                                 measurement_I=data_all_2_replicates$mean.x)
+data_all_2_summary <- data_all_2_summary %>% 
+  gather("type","error",-identifier,-measurement_S,-measurement_I)
+
+data_all_2_summary$measurement <- ifelse(data_all_2_summary$type=="error_I",
+                                         data_all_2_summary$measurement_I,
+                                         data_all_2_summary$measurement_S)
+
+data_all_2_summary$type[data_all_2_summary$type=="error_I"] <- "Image"
+data_all_2_summary$type[data_all_2_summary$type=="error_S"] <- "Specimen"
+
+ggplot(data_all_2_summary,aes(x=measurement,y=
+                                error,color=type,shape=type,fill=type))+
+  ylab("Relative precision")+
+  xlab("Measurement magnitude (mm)")+
+  geom_point(method="loess", se = TRUE,
+             size=2,alpha=0.7)+
+  geom_smooth(method="loess", se = TRUE,
+              size=1.7)+
+  theme_bw(base_size = 40)+
+  theme(plot.title = element_text(face = "bold"), 
+        panel.grid.minor = element_blank(),
+        legend.position="top",
+        legend.key.width=unit(1.5,"cm"))+ 
+  scale_y_sqrt(limits=c(0,0.3))+ 
+  labs(color = "Precision in")+ 
+  labs(fill = "Precision in")+ 
+  labs(shape = "Precision in")
+#ggsave("../figures/relative_precision.pdf",height = 11.5,width = 20,dpi = "print")
+
+
+ggplot(data_all_2_replicates_S_differences,
+       aes(x=mean,y=
+             abs(diff_S)/mean))+
+  geom_point(size=2,alpha=0.7)+
+  ylab("Relative error")+
+  xlab("Measurement on the specimen (mm)")+
+  geom_smooth(method="loess", se = TRUE,size=3,span=1.15)+
+  theme_bw(base_size = 40)+
+  theme(plot.title = element_text(face = "bold"), 
+        panel.grid.minor = element_blank())+ 
+  scale_y_sqrt(limits=c(0,0.3))
+#ggsave("../figures/relative_error.pdf",height = 11.5,width = 20,dpi = "print")
+
+
+
+#g <- ggplot(data_all_2_replicates)+
+#  geom_point(aes(diff_S,diff_I),alpha=0.2)+
+#  geom_abline()+
+#  xlab("Difference in specimem")+
+#  ylab("Difference in image")
+#ggplotly(g)
+
+#mean(data_all_2_replicates$diff_S>data_all_2_replicates$diff_I,na.rm=T)
+#differences <- data_all_2_replicates$diff_S>data_all_2_replicates$diff_I
+#binom.test(table(differences[!is.na(differences)]))
+
+data_all_2_replicates_complete <- data_all_2_replicates[complete.cases(data_all_2_replicates),]
+t.test(abs(data_all_2_replicates_complete$diff_S),
+       abs(data_all_2_replicates_complete$diff_I),
+       paired = TRUE)
+
+first_NA <- function(x)
+{
+  return(x[1])
+}
+second_NA <- function(x)
+{
+  return(x[2])
+}
+
+data_all_2_replicates_I_two_col <- data_all_2_replicates_I %>% 
+  group_by(identifier) %>% 
+  summarise(first_I=first_NA(measurement_value),
+            second_I=second_NA(measurement_value)) 
+data_all_2_replicates_S_two_col <- data_all_2_replicates_S %>% 
+  group_by(identifier) %>% 
+  summarise(first_S=first_NA(measurement_value),
+            second_S=second_NA(measurement_value)) 
+icc_S=icc(
+  data_all_2_replicates_S_two_col[complete.cases(data_all_2_replicates_S_two_col),-1])
+icc_I=icc(
+  data_all_2_replicates_I_two_col[complete.cases(data_all_2_replicates_I_two_col),-1]
+)
+icc_S
+icc_I
+
+data_all_2_replicates_I_two_col <- data_all_2_replicates_I %>% 
+  group_by(identifier) %>% 
+  summarise(first_I=first_NA(measurement_value),
+            second_I=second_NA(measurement_value),
+            measurement_name=first_NA(measurement_name),
+            Species=first_NA(Species)) 
+icc_I <- data_all_2_replicates_I_two_col %>% 
+  group_by(measurement_name,Species) %>% 
+  summarise(icc=icc(cbind(first_I,second_I))$value) 
+data_all_2_replicates_S_two_col <- data_all_2_replicates_S %>% 
+  group_by(identifier) %>% 
+  summarise(first_S=first_NA(measurement_value),
+            second_S=second_NA(measurement_value),
+            measurement_name=first_NA(measurement_name),
+            Species=first_NA(Species)) 
+icc_S <- data_all_2_replicates_S_two_col %>% 
+  group_by(measurement_name,Species) %>% 
+  summarise(icc=icc(cbind(first_S,second_S))$value) 
+
+#CalcRepeatability2 <- function(x,y)
+#{
+#  if(mean(is.na(y))>1/3)
+#    return(NA)
+#  return(CalcRepeatability(x,y))
+#}
+
+#library(evolqg)
+#rep_S <- data_all_2_replicates_S_two_col %>% 
+#  dplyr::group_by(measurement_name,Species) %>% 
+#  dplyr::summarise(rep=CalcRepeatability2(rep(1:length(first_S),2),
+                                   as.data.frame(c(first_S,second_S))))
+#rep_I <- data_all_2_replicates_I_two_col %>% 
+#  dplyr::group_by(measurement_name,Species) %>% 
+#  dplyr::summarise(rep=CalcRepeatability2(rep(1:length(first_I),2),
+#                                          as.data.frame(c(first_I,second_I))))
 ############
 ## Compute average of all measurements made for each image or specimen
 ############
@@ -110,8 +269,8 @@ colnames(data_all_averages_difference)=c("Identifier","Species","Barcode",
                                          "average_measurement_diff")
 
 data_all_averages_difference$measured_species=paste(data_all_averages_difference$Species,
-                                                  data_all_averages_difference$measurement_name,
-                                                  sep = ": ")
+                                                    data_all_averages_difference$measurement_name,
+                                                    sep = ": ")
 
 # compute pvalues to test if average difference is the same
 ps_median=data_all_averages_difference %>% group_by(Species,measurement_name) %>% 
@@ -139,10 +298,11 @@ g2 <- marrangeGrob(g, nrow=length(species),ncol=1,top="")
 #ggsave("figures/histogram.pdf",g2,height = 35,width = 20,
 #       dpi = "print")
 
+
 # plot relative error versus magnitude of each variable
 ggplot(data_all_averages_difference,
-       aes(x=average_measurement.y,y=
-             abs(average_measurement_diff)/average_measurement.y))+
+       aes(x=average_measurement.x,y=
+             abs(average_measurement_diff)/average_measurement.x))+
   geom_point(size=3)+
   ylab("Relative error")+
   xlab("Measurement on the specimen (mm)")+
@@ -151,8 +311,7 @@ ggplot(data_all_averages_difference,
   theme(plot.title = element_text(face = "bold"), 
         panel.grid.minor = element_blank())+ scale_y_sqrt()
 # uncomment to save plot
-#ggsave("figures/relative_error.pdf",height = 11.5,width = 20,dpi = "print")
-
+ggsave("../figures/relative_error.pdf",height = 11.5,width = 20,dpi = "print")
 
 # compute and plot std deviation of error versus magnitude of each variable
 summary_errors <- data_all_averages_difference %>% 
@@ -175,8 +334,10 @@ ggplot(summary_errors,aes(x=mean.y,y=error))+
 
 # compute correlation coefficient between measurements made in species vs images
 ps=data_all_averages_difference %>% group_by(Species,measurement_name) %>% 
-  summarise(corr=paste("r=",round(cor(average_measurement.x,
-                                      average_measurement.y,use = "complete.obs"),3),sep=""))
+  summarise(corr=paste0(paste0("icc=",round(icc(cbind(average_measurement.x,
+                                                      average_measurement.y))$value,2),sep="")))
+
+
 
 # plot scatterplots of measurements made in species vs images  
 species <- table(data_all_averages_difference$Species)
@@ -194,7 +355,8 @@ for(ii in seq_along(species))
     xlab("Specimen measurement (mm)")+ylab("Image measurement (mm)")+
     ggtitle(names(species)[ii])+
     theme_bw(base_size = 40)+
-    theme(plot.title = element_text(face = "bold"), panel.grid.minor = element_blank())
+    theme(plot.title = element_text(face = "bold"), 
+          panel.grid.minor = element_blank())
 }
 g2 <- marrangeGrob(g, nrow=length(species),ncol=1,top="")
 # uncomment to save plot
