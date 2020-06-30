@@ -54,8 +54,6 @@ library(ggforce)
 
 repetitions=50
 components=4
-segments=2:6
-
 
 file_names=list.files(path="../Data_missing/")
 file_names=grep("xls",file_names) %>% file_names[.]
@@ -65,84 +63,78 @@ file_names=(regexpr(".", file_names, fixed = TRUE) - 1) %>% stringr::str_sub(fil
 
 read_datasets=gsub("-","",gsub("_","",file_names))
 
+
 table=readRDS("../RDS/table_pca_noise_nomask.RDS")
 table[,grep("comp",names(table))]=
   abs(table[,grep("comp",names(table))])
-plot_data=matrix(0,length(file_names),2*(components+length(segments)))
+plot_data=matrix(0,length(file_names),2*(components))
 plot_data=as.data.frame(plot_data)
 for (i in 1:length(file_names))
 {
-  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)),grep("prop",names(table)))]
+  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)))]
   plot_data[i,]=c(apply(dataset[,-1], 2, mean,na.rm=T),apply(dataset[,-1], 2, function(x) sd(x,na.rm=T)/sqrt(repetitions-sum(is.na(x)))))
 }
 
-names(plot_data)=c(paste(rep("mean comp",components),1:components),paste(rep("mean prop",length(segments)),segments),
-                       paste(rep("error comp",components),1:components),paste(rep("error prop",length(segments)),segments))
+names(plot_data)=c(paste(rep("mean comp",components),1:components),
+                   paste(rep("error comp",components),1:components))
 
 df <- data.frame(
   dataset = factor(rep(read_datasets,length(grep("mean",names(plot_data))))),
   mean = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))])),
-  group= factor(rep(c(paste(rep("Component:",components),1:components),paste(rep("Clusters:",length(segments)),segments)),each=length(file_names))),
+  group= factor(rep(c(paste(rep("Component:",components),1:components)),each=length(file_names))),
   upper = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))+2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))])),
   lower = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))-2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))]))
 )
 
-#------------------------------
 
 table=readRDS("../RDS/table_pca_nonoise_mask.RDS")
-
-table[,grep("comp",names(table))]=abs(table[,grep("comp",names(table))])
-plot_data=matrix(0,length(file_names),2*(components+length(segments)))
+table[,grep("comp",names(table))]=
+  abs(table[,grep("comp",names(table))])
+plot_data=matrix(0,length(file_names),2*(components))
 plot_data=as.data.frame(plot_data)
 for (i in 1:length(file_names))
 {
-  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)),grep("prop",names(table)))]
+  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)))]
   plot_data[i,]=c(apply(dataset[,-1], 2, mean,na.rm=T),apply(dataset[,-1], 2, function(x) sd(x,na.rm=T)/sqrt(repetitions-sum(is.na(x)))))
 }
 
-names(plot_data)=c(paste(rep("mean comp",components),1:components),paste(rep("mean prop",length(segments)),segments),paste(rep("error comp",components),1:components),paste(rep("error prop",length(segments)),segments))
-
+names(plot_data)=c(paste(rep("mean comp",components),1:components),
+                   paste(rep("error comp",components),1:components))
 
 df2 <- data.frame(
   dataset = factor(rep(read_datasets,length(grep("mean",names(plot_data))))),
   mean = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))])),
-  group= factor(rep(c(paste(rep("Component:",components),1:components),paste(rep("Clusters:",length(segments)),segments)),each=length(file_names))),
+  group= factor(rep(c(paste(rep("Component:",components),1:components)),each=length(file_names))),
   upper = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))+2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))])),
   lower = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))-2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))]))
 )
 
 dff=rbind(df,df2)
 
-
-#------------------------------
-
-
-
 table=readRDS("../RDS/table_pca_noise_mask.RDS")
-
-table[,grep("comp",names(table))]=abs(table[,grep("comp",names(table))])
-plot_data=matrix(0,length(file_names),2*(components+length(segments)))
+table[,grep("comp",names(table))]=
+  abs(table[,grep("comp",names(table))])
+plot_data=matrix(0,length(file_names),2*(components))
 plot_data=as.data.frame(plot_data)
 for (i in 1:length(file_names))
 {
-  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)),grep("prop",names(table)))]
-  
-  #plot_data[i,]=c(apply(banco[,-1], 2, mean,na.rm=T),apply(banco[,-1], 2, sd,na.rm=T)/sqrt(repetitions))
+  dataset=table[((i-1)*repetitions+1):(i*repetitions),c(1,grep("comp",names(table)))]
   plot_data[i,]=c(apply(dataset[,-1], 2, mean,na.rm=T),apply(dataset[,-1], 2, function(x) sd(x,na.rm=T)/sqrt(repetitions-sum(is.na(x)))))
 }
 
-names(plot_data)=c(paste(rep("mean comp",components),1:components),paste(rep("mean prop",length(segments)),segments),paste(rep("error comp",components),1:components),paste(rep("error prop",length(segments)),segments))
-
+names(plot_data)=c(paste(rep("mean comp",components),1:components),
+                   paste(rep("error comp",components),1:components))
 
 df3 <- data.frame(
   dataset = factor(rep(read_datasets,length(grep("mean",names(plot_data))))),
   mean = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))])),
-  group= factor(rep(c(paste(rep("Component:",components),1:components),paste(rep("Clusters:",length(segments)),segments)),each=length(file_names))),
+  group= factor(rep(c(paste(rep("Component:",components),1:components)),each=length(file_names))),
   upper = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))+2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))])),
   lower = as.vector(as.matrix(plot_data[,grep("mean",names(plot_data))]))-2*as.vector(as.matrix(plot_data[,grep("error",names(plot_data))]))
 )
 
 dff=rbind(dff,df3)
+
 
 dff$type=as.factor(rep(c("Noise","Missing","Noise and Missing"),each=dim(df)[1]))
 dff$type=factor(dff$type,levels(dff$type)[c(3,1,2)])
@@ -200,7 +192,7 @@ plot_corr=ggplot(dff[grep("PC",dff$group),]) +
   facet_grid_paginate(dataset~group)+coord_flip()
 plot_corr
 
-
+dff_pca <- dff
 
 table=readRDS("../RDS/table_PCASimilarity_noise_mask.RDS")
 
@@ -292,3 +284,24 @@ vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
 print(plot_corr, vp = vplayout(1:100, 1:3))  # key is to define vplayout
 print(plot_pcasim, vp = vplayout(3:100, 4))
 dev.off()
+
+
+### table
+
+table_full_pca <- dff_pca[grep("PC",dff_pca$group),] %>% 
+  select(dataset, group,type,mean) %>% 
+  arrange(dataset,group,type)
+
+table_full_pcasim <- dff %>% 
+  select(dataset,type,mean) %>% 
+  arrange(dataset,type)
+
+table_full_pcasim$group="Sim"
+
+table_full <- rbind(table_full_pca,table_full_pcasim)%>% 
+  arrange(dataset,group,type)
+
+table_full$type <- as.character(table_full$type)
+print(xtable::xtable(table_full), 
+      include.rownames=FALSE)
+
